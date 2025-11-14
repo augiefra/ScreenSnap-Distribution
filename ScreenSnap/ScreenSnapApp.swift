@@ -47,6 +47,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var lastScreenshotPath: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSLog("🎯 [APP] ====== APPLICATION DID FINISH LAUNCHING ======")
         // Vérifier qu'une seule instance tourne (temporairement désactivé pour test)
         // if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "").count > 1 {
         //     print("Une autre instance de ScreenSnap est déjà en cours d'exécution")
@@ -57,18 +58,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Setup notification center delegate first
         UNUserNotificationCenter.current().delegate = self
 
-        // IMPORTANT: Request permissions using PermissionManager
-        // This provides retry logic and better diagnostics
-        permissionManager.checkAllPermissions()
+        // IMPORTANT: Don't check permissions at startup to avoid system pop-ups
+        // Permissions will be requested through the onboarding flow
+        // permissionManager.checkAllPermissions()
 
-        // Request notification permission (with diagnostic logging)
-        permissionManager.requestPermission(.notifications) { granted in
-            if granted {
-                print("✅ [APP] Notifications authorized")
-            } else {
-                print("⚠️ [APP] Notifications not authorized - DynamicIslandManager will provide feedback")
-            }
-        }
+        // Don't request notification permission automatically
+        // permissionManager.requestPermission(.notifications) { granted in
+        //     if granted {
+        //         print("✅ [APP] Notifications authorized")
+        //     } else {
+        //         print("⚠️ [APP] Notifications not authorized - DynamicIslandManager will provide feedback")
+        //     }
+        // }
 
         // Create menu bar item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -96,8 +97,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Setup menu
         setupMenu()
 
-        // Request all necessary permissions
-        requestAllPermissions()
+        // Don't request permissions at startup - will be handled by onboarding
+        // requestAllPermissions()
         
         // Configurer le raccourci clavier global Option + Cmd + S
         setupGlobalHotkey()
@@ -125,8 +126,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         updateActivationPolicy()
 
         // Show onboarding if first launch
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            SimpleOnboardingManager.shared.showIfNeeded()
+        NSLog("🚀 [APP] About to show onboarding...")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            NSLog("🚀 [APP] Calling OnboardingManager.showIfNeeded()")
+            OnboardingManager.shared.showIfNeeded()
         }
     }
 
@@ -389,49 +392,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
         
-        // Vérifier l'autorisation d'accessibilité (OBLIGATOIRE pour les raccourcis globaux)
+        // Silently check accessibility permission without showing alerts
+        // The onboarding will handle permission requests
         let trusted = AXIsProcessTrusted()
         if !trusted {
             print("⚠️ [HOTKEY] L'application n'a pas les autorisations d'accessibilité!")
             print("⚠️ [HOTKEY] Le raccourci global ne fonctionnera PAS sans cette autorisation")
+            print("💡 [HOTKEY] Les permissions seront demandées via l'onboarding")
 
-            // Demander l'autorisation
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-            AXIsProcessTrustedWithOptions(options as CFDictionary)
-
-            // Afficher une alerte pour guider l'utilisateur
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let alert = NSAlert()
-                alert.messageText = "🔑 Autorisation Accessibilité requise"
-                alert.informativeText = """
-                Pour que le raccourci ⌥⌘S fonctionne, vous devez autoriser ScreenSnap:
-
-                1️⃣ Cliquez sur "Ouvrir Réglages Système"
-                2️⃣ Dans la section Accessibilité, cherchez "ScreenSnap"
-                3️⃣ Si ScreenSnap n'apparaît pas, cliquez sur "+" pour l'ajouter
-                4️⃣ Activez la case à côté de ScreenSnap
-                5️⃣ Relancez l'application
-
-                Note: Les builds de développement peuvent ne pas apparaître automatiquement dans la liste.
-                """
-                alert.alertStyle = .informational
-                alert.addButton(withTitle: "Ouvrir Réglages Système")
-                alert.addButton(withTitle: "Plus tard")
-
-                let response = alert.runModal()
-                if response == .alertFirstButtonReturn {
-                    // Ouvrir les réglages système - Accessibilité
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-
-                    // Ouvrir aussi le Finder pour montrer l'emplacement de l'app
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        if let appPath = Bundle.main.bundlePath as String? {
-                            NSWorkspace.shared.selectFile(appPath, inFileViewerRootedAtPath: "")
-                        }
-                    }
-                }
-            }
-
+            // Don't show alert or request permission - let onboarding handle it
             return  // Ne pas configurer le raccourci si pas d'autorisation
         }
         

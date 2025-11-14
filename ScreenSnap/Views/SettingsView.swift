@@ -53,7 +53,7 @@ struct GeneralSettingsTab: View {
 
             Section {
                 Button("Afficher le tutoriel de démarrage") {
-                    SimpleOnboardingManager.shared.show()
+                    OnboardingManager.shared.show()
                 }
                 .help("Réaffiche l'écran d'accueil avec les instructions")
             } header: {

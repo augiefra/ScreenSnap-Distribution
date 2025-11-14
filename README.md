@@ -4,18 +4,18 @@
 
 macOS app with optimized workflow: Capture → ⌘V → Paste into your IDE!
 
-[![Version](https://img.shields.io/badge/version-1.2-blue.svg)](https://github.com/augiefra/ScreenSnap/releases/tag/v1.2)
+[![Version](https://img.shields.io/badge/version-1.3-blue.svg)](https://github.com/augiefra/ScreenSnap/releases/tag/v1.3)
 [![Platform](https://img.shields.io/badge/platform-macOS%2013.0%2B-lightgrey.svg)](https://www.apple.com/macos)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## ✨ What's New in v1.2
+## ✨ What's New in v1.3
 
-- 🧠 **Smart Clipboard** : Automatically detects your app and adapts clipboard format
-  - **Code Editors** (VSCode, Zed, Cursor) → File path for Markdown `![](path)`
-  - **Web Browsers** (Chrome, Safari, Arc, DIA) → Image data for direct paste
-  - **Design Tools** (Figma, Slack, Discord) → Image data
-- 🎯 **30+ Apps Supported** : Intelligent detection for all major browsers and editors
-- ⚡ **Perfect Workflow** : Paste screenshots exactly how each app expects them
+- 🎨 **Redesigned Onboarding** : Improved layout with better spacing and visual hierarchy
+  - Larger window (620x640) for comfortable viewing
+  - Optimized spacing between elements
+  - Better permission request flow
+- 🐛 **Bug Fixes** : Fixed onboarding display issues and crash on close
+- ✨ **Polish** : Enhanced overall user experience
 
 ## 🚀 Features
 
@@ -230,6 +230,23 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 🎉 Changelog
 
+### v1.3 - Onboarding Polish (2025-01-14)
+
+**Improved**
+- 🎨 **Redesigned Onboarding Interface**
+  - Increased window size from 560px to 640px for better spacing
+  - Optimized layout with improved visual hierarchy
+  - Better spacing between all UI elements
+  - Enhanced permission request flow
+- 🐛 **Bug Fixes**
+  - Fixed onboarding not displaying on first launch
+  - Fixed crash when closing onboarding window
+  - Fixed UI overlap issues with permission buttons
+- ✨ **User Experience**
+  - Smoother animations and transitions
+  - Better visual feedback
+  - More polished overall appearance
+
 ### v1.2 - Smart Clipboard (2025-01-14)
 
 **Added**
@@ -261,8 +278,8 @@ MIT License - See [LICENSE](LICENSE)
 
 ---
 
-**Current Version** : 1.2
-**Build** : 4
+**Current Version** : 1.3
+**Build** : 5
 **Compatibility** : macOS 13.0+ (Ventura, Sonoma, Sequoia)
 **Author** : Eric COLOGNI
 **License** : MIT

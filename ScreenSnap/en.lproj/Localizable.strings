@@ -115,3 +115,11 @@
 
 "onboarding.page4.title" = "Customizable";
 "onboarding.page4.description" = "Shortcuts, formats, folders...\nEverything configurable from the menu bar.";
+
+/* Onboarding - Permissions */
+"onboarding.permissions.screen_recording.title" = "Screen Recording";
+"onboarding.permissions.screen_recording.description" = "Required to capture your screen.\nClick below to grant permission.";
+"onboarding.permissions.accessibility.title" = "Keyboard Shortcut";
+"onboarding.permissions.accessibility.description" = "Required for global hotkey ⌥⌘S.\nClick below to grant permission.";
+"onboarding.permissions.grant" = "Grant Permission";
+"onboarding.permissions.granted" = "Permission Granted";

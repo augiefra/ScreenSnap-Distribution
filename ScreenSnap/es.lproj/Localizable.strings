@@ -115,3 +115,11 @@
 
 "onboarding.page4.title" = "Personalizable";
 "onboarding.page4.description" = "Atajos, formatos, carpetas...\nTodo configurable desde la barra de menú.";
+
+/* Onboarding - Permissions */
+"onboarding.permissions.screen_recording.title" = "Grabación de pantalla";
+"onboarding.permissions.screen_recording.description" = "Requerido para capturar tu pantalla.\nHaz clic abajo para conceder permiso.";
+"onboarding.permissions.accessibility.title" = "Atajo de teclado";
+"onboarding.permissions.accessibility.description" = "Requerido para el atajo global ⌥⌘S.\nHaz clic abajo para conceder permiso.";
+"onboarding.permissions.grant" = "Conceder permiso";
+"onboarding.permissions.granted" = "Permiso concedido";

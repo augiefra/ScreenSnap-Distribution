@@ -115,3 +115,11 @@
 
 "onboarding.page4.title" = "Personnalisable";
 "onboarding.page4.description" = "Raccourcis, formats, dossiers...\nTout est configurable depuis la barre de menu.";
+
+/* Onboarding - Permissions */
+"onboarding.permissions.screen_recording.title" = "Enregistrement d'écran";
+"onboarding.permissions.screen_recording.description" = "Nécessaire pour capturer votre écran.\nCliquez ci-dessous pour autoriser.";
+"onboarding.permissions.accessibility.title" = "Raccourci clavier";
+"onboarding.permissions.accessibility.description" = "Nécessaire pour le raccourci global ⌥⌘S.\nCliquez ci-dessous pour autoriser.";
+"onboarding.permissions.grant" = "Autoriser";
+"onboarding.permissions.granted" = "Autorisé";

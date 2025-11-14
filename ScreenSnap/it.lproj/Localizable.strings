@@ -115,3 +115,11 @@
 
 "onboarding.page4.title" = "Personalizzabile";
 "onboarding.page4.description" = "Scorciatoie, formati, cartelle...\nTutto configurabile dalla barra dei menu.";
+
+/* Onboarding - Permissions */
+"onboarding.permissions.screen_recording.title" = "Registrazione schermo";
+"onboarding.permissions.screen_recording.description" = "Richiesto per acquisire lo schermo.\nClicca sotto per concedere il permesso.";
+"onboarding.permissions.accessibility.title" = "Scorciatoia da tastiera";
+"onboarding.permissions.accessibility.description" = "Richiesto per la scorciatoia globale ⌥⌘S.\nClicca sotto per concedere il permesso.";
+"onboarding.permissions.grant" = "Concedi permesso";
+"onboarding.permissions.granted" = "Permesso concesso";

@@ -115,3 +115,11 @@
 
 "onboarding.page4.title" = "Anpassbar";
 "onboarding.page4.description" = "Tastenkürzel, Formate, Ordner...\nAlles über die Menüleiste konfigurierbar.";
+
+/* Onboarding - Permissions */
+"onboarding.permissions.screen_recording.title" = "Bildschirmaufnahme";
+"onboarding.permissions.screen_recording.description" = "Erforderlich zum Aufnehmen Ihres Bildschirms.\nKlicken Sie unten, um die Berechtigung zu erteilen.";
+"onboarding.permissions.accessibility.title" = "Tastaturkürzel";
+"onboarding.permissions.accessibility.description" = "Erforderlich für globales Tastenkürzel ⌥⌘S.\nKlicken Sie unten, um die Berechtigung zu erteilen.";
+"onboarding.permissions.grant" = "Berechtigung erteilen";
+"onboarding.permissions.granted" = "Berechtigung erteilt";
