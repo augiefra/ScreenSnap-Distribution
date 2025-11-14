@@ -156,12 +156,13 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
         print("✅ [CLIPBOARD] Image copiée au presse-papier (TIFF + PNG)")
 
         // Sauvegarde
+        var filePath: String? = nil
         if AppSettings.shared.saveToFile {
-            saveImageToFile(image)
+            filePath = saveToFileAndGetPath(image: image)
         }
 
         // Notification
-        showSuccessNotification()
+        showSuccessNotification(filePath: filePath)
     }
     
     private func saveImageToFile(_ image: NSImage) {
