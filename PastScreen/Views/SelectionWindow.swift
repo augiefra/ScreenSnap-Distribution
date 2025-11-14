@@ -49,6 +49,9 @@ class SelectionWindow: NSWindow {
         self.contentView = selectionView
     }
 
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { // ESC
             selectionDelegate?.selectionWindowDidCancel(self)

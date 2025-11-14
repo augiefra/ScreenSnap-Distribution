@@ -37,6 +37,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var preferencesWindowDelegate: PreferencesWindowDelegate?  // Strong reference
     private var enforcingDockPreference = false
     private var hasShownDockWarning = false
+    private var hasPromptedAccessibility = false
+    private var hasPromptedScreenRecording = false
 
     // Services
     var permissionManager = PermissionManager.shared
@@ -106,14 +108,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Request permission for system notifications
         requestNotificationPermission()
 
-        // TEST: Envoyer une notification de test au démarrage pour debug
+        #if DEBUG
         testNotification()
+        #endif
 
         // Configurer le raccourci clavier global Option + Cmd + S
         setupGlobalHotkey()
         
         // Observer les changements de settings pour le raccourci clavier
         setupSettingsObserver()
+
+        // Vérifier immédiatement l'état des permissions critiques
+        permissionManager.checkAllPermissions()
+        requestCriticalPermissionsIfNeeded()
 
         // Observer les captures d'écran réussies pour mettre à jour lastScreenshotPath
         NotificationCenter.default.addObserver(
@@ -220,24 +227,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     @objc func takeScreenshot() {
-        guard let screenshotService = screenshotService else {
-            print("❌ Service de capture d'écran non initialisé")
-            return
+        requestScreenRecordingIfNeeded { [weak self] in
+            self?.performAreaCapture()
         }
-        // Capture the active app BEFORE showing selection window (when called from menu bar)
-        screenshotService.capturePreviousApp()
-        screenshotService.captureScreenshot()
     }
 
     @objc func captureFullScreen() {
-        guard let screenshotService = screenshotService else {
-            print("❌ Service de capture d'écran non initialisé")
-            return
+        requestScreenRecordingIfNeeded { [weak self] in
+            self?.performFullScreenCapture()
         }
-        // Capture the active app BEFORE fullscreen capture
-        screenshotService.capturePreviousApp()
-        // Use the same ScreenshotService but capture full screen
-        screenshotService.captureFullScreen()
     }
 
     @objc func revealLastScreenshot() {
@@ -367,6 +365,7 @@ func applicationWillTerminate(_ notification: Notification) {
         }
     }
 
+#if DEBUG
     func testNotification() {
         print("🧪 [TEST] Envoi d'une notification de test au démarrage...")
 
@@ -382,8 +381,42 @@ func applicationWillTerminate(_ notification: Notification) {
         print("🧪 [TEST] Notification de test envoyée")
         print("🧪 [TEST] Delegate configuré: \(UNUserNotificationCenter.current().delegate != nil)")
     }
+#endif
 
-    func requestAllPermissions() {
+    private func requestCriticalPermissionsIfNeeded() {
+        if permissionManager.notificationStatus == .notDetermined {
+            requestNotificationPermission()
+        }
+
+        ensureAccessibilityPermissionIfNeeded()
+
+        if permissionManager.screenRecordingStatus != .authorized && !hasPromptedScreenRecording {
+            hasPromptedScreenRecording = true
+            permissionManager.requestPermission(.screenRecording) { granted in
+                if !granted {
+                    DispatchQueue.main.async {
+                        self.permissionManager.showPermissionAlert(for: [.screenRecording])
+                    }
+                }
+            }
+        }
+    }
+
+    private func ensureAccessibilityPermissionIfNeeded() {
+        guard settings.globalHotkeyEnabled else { return }
+        if permissionManager.accessibilityStatus == .authorized { return }
+        if hasPromptedAccessibility { return }
+        hasPromptedAccessibility = true
+        permissionManager.requestPermission(.accessibility) { granted in
+            if !granted {
+                DispatchQueue.main.async {
+                    self.permissionManager.showPermissionAlert(for: [.accessibility])
+                }
+            }
+        }
+    }
+
+    private func requestAllPermissions() {
         print("🔐 [APP] Requesting all necessary permissions...")
 
         // Check current status of all permissions
@@ -418,6 +451,38 @@ func applicationWillTerminate(_ notification: Notification) {
             }
         }
     }
+
+    private func requestScreenRecordingIfNeeded(onGranted: @escaping () -> Void) {
+        permissionManager.checkScreenRecordingPermission()
+        if permissionManager.screenRecordingStatus == .authorized {
+            onGranted()
+            return
+        }
+
+        permissionManager.requestPermission(.screenRecording) { granted in
+            DispatchQueue.main.async {
+                if granted {
+                    onGranted()
+                } else {
+                    self.permissionManager.showPermissionAlert(for: [.screenRecording])
+                }
+            }
+        }
+    }
+
+    private func performAreaCapture() {
+        guard let screenshotService = screenshotService else { return }
+        screenshotService.capturePreviousApp()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak screenshotService] in
+            screenshotService?.captureScreenshot()
+        }
+    }
+
+    private func performFullScreenCapture() {
+        guard let screenshotService = screenshotService else { return }
+        screenshotService.capturePreviousApp()
+        screenshotService.captureFullScreen()
+    }
     
     // MARK: - Raccourci clavier global
     
@@ -425,10 +490,12 @@ func applicationWillTerminate(_ notification: Notification) {
         // Observer les changements du setting globalHotkeyEnabled
         settingsObserver = settings.$globalHotkeyEnabled.sink { [weak self] enabled in
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 if enabled {
-                    self?.setupGlobalHotkey()
+                    self.ensureAccessibilityPermissionIfNeeded()
+                    self.setupGlobalHotkey()
                 } else {
-                    self?.removeGlobalHotkey()
+                    self.removeGlobalHotkey()
                 }
             }
         }
@@ -444,16 +511,12 @@ func applicationWillTerminate(_ notification: Notification) {
             return
         }
         
-        // Silently check accessibility permission without showing alerts
-        // The onboarding will handle permission requests
         let trusted = AXIsProcessTrusted()
         if !trusted {
             print("⚠️ [HOTKEY] L'application n'a pas les autorisations d'accessibilité!")
             print("⚠️ [HOTKEY] Le raccourci global ne fonctionnera PAS sans cette autorisation")
-            print("💡 [HOTKEY] Les permissions seront demandées via l'onboarding")
-
-            // Don't show alert or request permission - let onboarding handle it
-            return  // Ne pas configurer le raccourci si pas d'autorisation
+            ensureAccessibilityPermissionIfNeeded()
+            return
         }
         
         // Créer le moniteur d'événements global pour Option + Cmd + S
@@ -474,12 +537,8 @@ func applicationWillTerminate(_ notification: Notification) {
                 print("🎯 [HOTKEY] Raccourci ⌥⌘S détecté!")
                 print("   keyCode: \(event.keyCode), characters: \(event.characters ?? "nil")")
 
-                // IMPORTANT: Capture l'app IMMÉDIATEMENT avant que PastScreen devienne actif
-                self?.screenshotService?.capturePreviousApp()
-
-                // Petit délai pour laisser capturePreviousApp() s'exécuter
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                    self?.screenshotService?.captureScreenshot()
+                self?.requestScreenRecordingIfNeeded {
+                    self?.performAreaCapture()
                 }
             }
         }
