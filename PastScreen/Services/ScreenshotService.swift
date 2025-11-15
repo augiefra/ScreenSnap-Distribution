@@ -136,45 +136,28 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
 
     // MARK: - Notification Routing
 
-    /// Affiche notification macOS en fonction du mode Dock
+    /// Affiche une notification macOS native (toujours UNUserNotification)
     private func showSuccessNotification(filePath: String?) {
-        print("🔔 [NOTIF] showSuccessNotification appelée avec filePath: \(filePath ?? "nil")")
+        let pathDescription = filePath ?? "nil"
+        print("🔔 [NOTIF] showSuccessNotification appelée avec filePath: \(pathDescription)")
 
-        if AppSettings.shared.showInDock {
-            let content = UNMutableNotificationContent()
-            content.title = "PastScreen"
-            content.body = NSLocalizedString("notification.screenshot_saved", comment: "")
-            content.sound = .default
+        let content = UNMutableNotificationContent()
+        content.title = "PastScreen"
+        content.body = NSLocalizedString("notification.screenshot_saved", comment: "")
+        content.sound = nil  // conserver uniquement le son "Glass" joué avant la notification
 
-            if let filePath = filePath {
-                content.userInfo = ["filePath": filePath]
-                print("🔔 [NOTIF] UserInfo configuré avec filePath")
-            }
-
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    print("❌ [NOTIF] Erreur UNUserNotification: \(error)")
-                } else {
-                    print("✅ [NOTIF] UNUserNotification envoyée")
-                }
-            }
-        } else {
-            let notification = NSUserNotification()
-            notification.title = "PastScreen"
-            notification.informativeText = NSLocalizedString("notification.screenshot_saved", comment: "")
-            notification.soundName = NSUserNotificationDefaultSoundName
-            notification.hasActionButton = false
-
-            if let filePath = filePath {
-                notification.userInfo = ["filePath": filePath]
-                print("🔔 [NOTIF] UserInfo configuré avec filePath (legacy)")
-            }
-
-            NSUserNotificationCenter.default.deliver(notification)
-            print("✅ [NOTIF] NSUserNotification envoyée")
+        if let filePath = filePath {
+            content.userInfo = ["filePath": filePath]
+            print("🔔 [NOTIF] UserInfo configuré avec filePath")
         }
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        NotificationDeliveryCoordinator.shared.deliver(request: request, needsTemporaryDock: !AppSettings.shared.showInDock)
 
         DynamicIslandManager.shared.show(message: "Saved", duration: 3.0)
     }
@@ -211,12 +194,12 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             }
         }
     }
-    
+
     // Nouvelle méthode avec ScreenCaptureKit
     private func captureWithScreenCaptureKit(rect: CGRect) async throws -> CGImage {
         return try await captureScreenRegion(rect: rect)
     }
-    
+
     // Gestion commune du succès
     @MainActor
     private func handleSuccessfulCapture(image: NSImage) {
@@ -239,37 +222,41 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             filePath = self.saveToFileAndGetPath(image: image)
         }
 
+        if let filePath = filePath {
+            NotificationCenter.default.post(name: .screenshotCaptured, object: nil, userInfo: ["filePath": filePath])
+        }
+
         // Show notification and visual feedback
         self.showSuccessNotification(filePath: filePath)
     }
 
     private func captureScreenRegion(rect: CGRect) async throws -> CGImage {
         print("🖥️ [ScreenCaptureKit] Capture région: \(rect)")
-        
+
         // Vérification de base du rectangle
         guard rect.width > 0 && rect.height > 0 else {
             throw NSError(domain: "ScreenshotService", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "Rectangle invalide: \(rect)"
             ])
         }
-        
+
         do {
             // 1. Obtenir le contenu partageable
             let content = try await SCShareableContent.current
             print("✅ [ScreenCaptureKit] \(content.displays.count) écran(s) disponible(s)")
-            
+
             // 2. Trouver l'écran principal
             guard let mainDisplay = content.displays.first else {
                 throw NSError(domain: "ScreenshotService", code: -2, userInfo: [
                     NSLocalizedDescriptionKey: "Aucun écran disponible"
                 ])
             }
-            
+
             print("✅ [ScreenCaptureKit] Écran principal ID: \(mainDisplay.displayID)")
-            
+
             // 3. Créer le filtre de contenu (capture tout l'écran, puis on crop)
             let filter = SCContentFilter(display: mainDisplay, excludingWindows: [])
-            
+
             // 4. Configuration simple et robuste
             let config = SCStreamConfiguration()
             config.width = Int(rect.width)
@@ -278,21 +265,21 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             config.scalesToFit = false
             config.showsCursor = false
             config.captureResolution = .best
-            
+
             print("⚙️ [ScreenCaptureKit] Config: \(config.width)x\(config.height), sourceRect: \(config.sourceRect)")
-            
+
             // 5. Capture avec l'API officielle
             let cgImage = try await SCScreenshotManager.captureImage(
                 contentFilter: filter,
                 configuration: config
             )
-            
+
             print("✅ [ScreenCaptureKit] Capture réussie: \(cgImage.width)x\(cgImage.height)")
             return cgImage
-            
+
         } catch let error as SCStreamError {
             print("❌ [ScreenCaptureKit] Erreur SCStream: \(error.localizedDescription)")
-            
+
             // Gestion spécifique des erreurs ScreenCaptureKit
             switch error.code {
             case .userDeclined:
@@ -308,7 +295,7 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
                     NSLocalizedDescriptionKey: "Erreur de capture: \(error.localizedDescription)"
                 ])
             }
-            
+
         } catch {
             print("❌ [ScreenCaptureKit] Erreur générale: \(error)")
             throw NSError(domain: "ScreenshotService", code: -13, userInfo: [
@@ -489,5 +476,55 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - Notification Delivery Helper
+
+private final class NotificationDeliveryCoordinator {
+    static let shared = NotificationDeliveryCoordinator()
+
+    private var accessoryNotificationCount = 0
+    private var isTemporarilyShowingDock = false
+
+    func deliver(request: UNNotificationRequest, needsTemporaryDock: Bool) {
+        if !needsTemporaryDock {
+            UNUserNotificationCenter.current().add(request) { error in
+                self.logResult(error)
+            }
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.accessoryNotificationCount += 1
+
+            if !self.isTemporarilyShowingDock {
+                self.isTemporarilyShowingDock = true
+                NSApp.setActivationPolicy(.regular)
+                print("✅ [NOTIF] Dock activé temporairement pour l'envoi de notifications")
+            }
+
+            UNUserNotificationCenter.current().add(request) { error in
+                self.logResult(error)
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.accessoryNotificationCount -= 1
+                    if self.accessoryNotificationCount <= 0 {
+                        self.accessoryNotificationCount = 0
+                        self.isTemporarilyShowingDock = false
+                        (NSApp.delegate as? AppDelegate)?.updateActivationPolicy()
+                        print("✅ [NOTIF] Dock restauré selon les préférences utilisateur")
+                    }
+                }
+            }
+        }
+    }
+
+    private func logResult(_ error: Error?) {
+        if let error = error {
+            print("❌ [NOTIF] Erreur UNUserNotification: \(error)")
+        } else {
+            print("✅ [NOTIF] UNUserNotification envoyée")
+        }
     }
 }

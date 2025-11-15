@@ -10,6 +10,9 @@ import AppKit
 import UserNotifications
 import Combine
 import Sparkle
+#if canImport(TipKit)
+import TipKit
+#endif
 
 // Notification names
 extension Notification.Name {
@@ -29,7 +32,14 @@ struct PastScreenApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSUserNotificationCenterDelegate {
+enum CaptureTrigger: String {
+    case menuBar
+    case hotkey
+    case appIntent
+    case automation
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var statusItem: NSStatusItem?
     var statusMenu: NSMenu?  // Référence persistante au menu
     var screenshotService: ScreenshotService?
@@ -61,9 +71,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         //     return
         // }
 
-        // Setup notification center delegates
+        // Setup notification center delegate
         UNUserNotificationCenter.current().delegate = self
-        NSUserNotificationCenter.default.delegate = self
+
+#if canImport(TipKit)
+        if #available(macOS 14.0, *) {
+            try? Tips.configure()
+        }
+#endif
+        ScreenshotIntentBridge.shared.appDelegate = self
 
         // IMPORTANT: Don't check permissions at startup to avoid system pop-ups
         // Permissions will be requested through the onboarding flow
@@ -104,9 +120,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Setup menu
         setupMenu()
 
-        if settings.showInDock {
-            requestNotificationPermission()
-        }
+        requestNotificationPermission()
 
         #if DEBUG
         testNotification()
@@ -114,11 +128,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         // Configurer le raccourci clavier global Option + Cmd + S
         setupGlobalHotkey()
-        
+
         // Observer les changements de settings pour le raccourci clavier
         setupSettingsObserver()
 
-        // Vérifier immédiatement l'état des permissions critiques
         permissionManager.checkAllPermissions()
         requestCriticalPermissionsIfNeeded()
 
@@ -228,13 +241,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     @objc func takeScreenshot() {
         requestScreenRecordingIfNeeded { [weak self] in
-            self?.performAreaCapture()
+            self?.performAreaCapture(source: .menuBar)
         }
     }
 
     @objc func captureFullScreen() {
         requestScreenRecordingIfNeeded { [weak self] in
-            self?.performFullScreenCapture()
+            self?.performFullScreenCapture(source: .menuBar)
         }
     }
 
@@ -269,13 +282,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             window.makeKeyAndOrderFront(nil)
             return
         }
-        
+
         // Créer la fenêtre de préférences
         let settingsView = SettingsView()
             .environmentObject(AppSettings.shared)
-        
+
         let hostingController = NSHostingController(rootView: settingsView)
-        
+
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
             styleMask: [.titled, .closable, .miniaturizable],
@@ -288,7 +301,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         window.center()
         window.setFrameAutosaveName("PreferencesWindow")
         window.isReleasedWhenClosed = false
-        
+
         // Gérer la fermeture de la fenêtre
         let delegate = PreferencesWindowDelegate { [weak self] in
             self?.preferencesWindow = nil
@@ -296,9 +309,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         self.preferencesWindowDelegate = delegate
         window.delegate = delegate
-        
+
         self.preferencesWindow = window
-        
+
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
@@ -311,19 +324,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Fermer toutes les fenêtres ouvertes
         preferencesWindow?.close()
         preferencesWindow = nil
-        
+
         // Cleanup full screen service if needed
-        
+
         // Nettoyer l'icône de la barre de menu
         if let statusItem = statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
             self.statusItem = nil
         }
-        
+
         // Terminer l'application (le raccourci reste actif)
         NSApplication.shared.terminate(nil)
     }
-    
+
     // MARK: - UNUserNotificationCenterDelegate
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -346,20 +359,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         completionHandler()
     }
 
-    // MARK: - NSUserNotificationCenterDelegate (pour mode menu bar only)
-
-    func userNotificationCenter(_ center: NSUserNotificationCenter, shouldPresent notification: NSUserNotification) -> Bool {
-        return true
-    }
-
-    func userNotificationCenter(_ center: NSUserNotificationCenter, didActivate notification: NSUserNotification) {
-        if let filePath = notification.userInfo?["filePath"] as? String {
-            print("🖱️ [DELEGATE] Legacy notification click - ouverture du fichier: \(filePath)")
-            NSWorkspace.shared.selectFile(filePath, inFileViewerRootedAtPath: "")
-        }
-        center.removeDeliveredNotification(notification)
-    }
-
     func applicationWillTerminate(_ notification: Notification) {
         settingsObserver?.cancel()
         removeGlobalHotkey()
@@ -369,7 +368,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func requestNotificationPermission() {
-        guard settings.showInDock else { return }
         print("🔔 [APP] Requesting notification permission...")
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
@@ -383,27 +381,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func testNotification() {
         print("🧪 [TEST] Envoi d'une notification de test au démarrage...")
 
-        if settings.showInDock {
-            let content = UNMutableNotificationContent()
-            content.title = "PastScreen - Test"
-            content.body = "L'app a démarré avec succès"
-            content.sound = .default
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request)
-        } else {
-            let notification = NSUserNotification()
-            notification.title = "PastScreen - Test"
-            notification.informativeText = "L'app a démarré avec succès"
-            notification.soundName = NSUserNotificationDefaultSoundName
-            NSUserNotificationCenter.default.deliver(notification)
-        }
+        let content = UNMutableNotificationContent()
+        content.title = "PastScreen - Test"
+        content.body = "L'app a démarré avec succès"
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
 
         print("🧪 [TEST] Notification de test envoyée")
     }
 #endif
 
     private func requestCriticalPermissionsIfNeeded() {
-        if settings.showInDock && permissionManager.notificationStatus == .notDetermined {
+        if permissionManager.notificationStatus == .notDetermined {
             requestNotificationPermission()
         }
 
@@ -489,22 +479,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
-    private func performAreaCapture() {
+    func performAreaCapture(source: CaptureTrigger = .menuBar) {
         guard let screenshotService = screenshotService else { return }
+        print("🚀 [CAPTURE] Demande de capture area depuis: \(source.rawValue)")
         screenshotService.capturePreviousApp()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak screenshotService] in
             screenshotService?.captureScreenshot()
         }
     }
 
-    private func performFullScreenCapture() {
+    func performFullScreenCapture(source: CaptureTrigger = .menuBar) {
         guard let screenshotService = screenshotService else { return }
+        print("🚀 [CAPTURE] Demande de capture plein écran depuis: \(source.rawValue)")
         screenshotService.capturePreviousApp()
         screenshotService.captureFullScreen()
     }
-    
+
     // MARK: - Raccourci clavier global
-    
+
     func setupSettingsObserver() {
         // Observer les changements du setting globalHotkeyEnabled
         settingsObserver = settings.$globalHotkeyEnabled.sink { [weak self] enabled in
@@ -519,17 +511,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
-    
+
     func setupGlobalHotkey() {
         // Ne pas créer plusieurs moniteurs
         removeGlobalHotkey()
-        
+
         // Vérifier si le raccourci est activé dans les settings
         guard settings.globalHotkeyEnabled else {
             print("Raccourci clavier global désactivé dans les préférences")
             return
         }
-        
+
         let trusted = AXIsProcessTrusted()
         if !trusted {
             print("⚠️ [HOTKEY] L'application n'a pas les autorisations d'accessibilité!")
@@ -537,7 +529,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             ensureAccessibilityPermissionIfNeeded()
             return
         }
-        
+
         // Créer le moniteur d'événements global pour Option + Cmd + S
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Vérifier que Option et Command sont pressés (en ignorant les autres flags système)
@@ -557,14 +549,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 print("   keyCode: \(event.keyCode), characters: \(event.characters ?? "nil")")
 
                 self?.requestScreenRecordingIfNeeded {
-                    self?.performAreaCapture()
+                    self?.performAreaCapture(source: .hotkey)
                 }
             }
         }
 
         print("✅ [HOTKEY] Raccourci clavier global ⌥⌘S configuré avec succès")
     }
-    
+
     func removeGlobalHotkey() {
         if let monitor = globalEventMonitor {
             NSEvent.removeMonitor(monitor)
@@ -585,10 +577,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         if showInDock {
             NSApp.setActivationPolicy(.regular)
             print("✅ [DOCK] Mode normal activé (icône Dock + menu bar)")
-            requestNotificationPermission()
         } else {
             NSApp.setActivationPolicy(.accessory)
-            print("✅ [DOCK] Mode menu bar uniquement activé (pas de Dock) - notifications fallback")
+            print("✅ [DOCK] Mode menu bar uniquement activé (pas de Dock)")
         }
     }
 }
@@ -597,12 +588,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
 class PreferencesWindowDelegate: NSObject, NSWindowDelegate {
     private let onClose: () -> Void
-    
+
     init(onClose: @escaping () -> Void) {
         self.onClose = onClose
         super.init()
     }
-    
+
     func windowWillClose(_ notification: Notification) {
         onClose()
     }

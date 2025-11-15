@@ -7,6 +7,27 @@
     <language>en</language>
 
     <item>
+      <title>Version 1.5</title>
+      <description><![CDATA[
+        <h2>PastScreen 1.5 - Apple-first refinements</h2>
+        <ul>
+          <li><strong>Native Shortcuts:</strong> New App Intents let you trigger captures via Siri, Shortcuts or Automations.</li>
+          <li><strong>Modern UI polish:</strong> Refined selection overlay, TipKit onboarding hints and improved Dock/menubar sync.</li>
+          <li><strong>Notifications:</strong> Fully native UN notifications with Finder reveal, silent banner, and reliable clipboard copy.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Sat, 15 Nov 2025 16:35:09 +0100</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/augiefra/PastScreen/releases/download/v1.5/PastScreen-1.5.zip"
+        sparkle:edSignature="eulPkwm7pE2xGZyNfXwZEDEbxwI5jHUhk5lnS/6NRg8Mq0EUuLlkor5fzIEa+n8SsNbaUyNkr8GSxMCrXUclBQ=="
+        length="3277833"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>Version 1.4</title>
       <description><![CDATA[
         <h2>PastScreen 1.4 - Complete Rebrand</h2>

@@ -2,33 +2,33 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.augiefra.PastScreen</string>
 	<key>CFBundleName</key>
 	<string>PastScreen</string>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>1.5</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>PastScreen utilise les événements Apple pour les raccourcis clavier globaux.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>PastScreen nécessite l'accès à la capture d'écran pour prendre des screenshots.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>PastScreen affiche des notifications pour confirmer les captures d'écran.</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/augiefra/PastScreen/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>0kgGfpfzDCMIcKXLqaNbUM+p14CHFGib3GqG3FtCOSk=</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUAutomaticallyUpdate</key>
-	<false/>
-	<key>SUAllowsAutomaticUpdates</key>
-	<true/>
 </dict>
 </plist>

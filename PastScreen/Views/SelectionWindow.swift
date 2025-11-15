@@ -34,8 +34,8 @@ class SelectionWindow: NSWindow {
         self.level = .screenSaver
         self.ignoresMouseEvents = false
         self.hasShadow = false
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        // Créer la vue de sélection
         selectionView = SelectionOverlayView(frame: combinedFrame)
         selectionView.onComplete = { [weak self] rect in
             guard let self = self else { return }
@@ -62,6 +62,8 @@ class SelectionWindow: NSWindow {
 
     // Convenience methods for showing/hiding
     func show() {
+        // S'assurer que PastScreen devient app active pour capter le premier clic
+        NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
     }
 
@@ -82,7 +84,7 @@ class SelectionOverlayView: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         self.wantsLayer = true
-        self.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        self.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
     }
 
     required init?(coder: NSCoder) {
@@ -135,8 +137,8 @@ class SelectionOverlayView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        // Fond semi-transparent
-        NSColor.black.withAlphaComponent(0.3).setFill()
+        // Fond semi-transparent plus marqué
+        NSColor.black.withAlphaComponent(0.2).setFill()
         bounds.fill()
 
         guard let start = startPoint, let end = endPoint else { return }

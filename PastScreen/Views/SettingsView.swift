@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(TipKit)
+import TipKit
+#endif
 
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
@@ -38,6 +41,13 @@ struct GeneralSettingsTab: View {
 
     var body: some View {
         Form {
+#if canImport(TipKit)
+            if #available(macOS 14.0, *) {
+                TipView(QuickCaptureTip())
+                    .tipBackground(.ultraThickMaterial)
+                    .padding(.vertical, 4)
+            }
+#endif
             Section {
                 Toggle("Afficher l'icône dans le Dock", isOn: $settings.showInDock)
                     .help("Affiche l'icône de l'application dans le Dock. Désactivez pour passer en mode barre de menus uniquement.")
@@ -86,7 +96,7 @@ struct CaptureSettingsTab: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Activer le raccourci clavier global", isOn: $settings.globalHotkeyEnabled)
                         .help("Active ou désactive le raccourci ⌥⌘S pour capturer une zone")
-                    
+
                     if settings.globalHotkeyEnabled {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -99,7 +109,7 @@ struct CaptureSettingsTab: View {
                                     .background(Color.secondary.opacity(0.1))
                                     .cornerRadius(4)
                             }
-                            
+
                             HStack {
                                 Text("Clic sur l'icône :")
                                 Spacer()
