@@ -489,19 +489,25 @@ private final class NotificationDeliveryCoordinator {
 
     func deliver(request: UNNotificationRequest, needsTemporaryDock: Bool) {
         if !needsTemporaryDock {
+            print("🔔 [NOTIF] Dock déjà visible, envoi direct")
             UNUserNotificationCenter.current().add(request) { error in
                 self.logResult(error)
             }
             return
         }
 
+        print("🔔 [NOTIF] needsTemporaryDock = true, activation temporaire")
+
         DispatchQueue.main.async {
             self.accessoryNotificationCount += 1
+            print("🔔 [NOTIF] Counter: \(self.accessoryNotificationCount)")
 
             if !self.isTemporarilyShowingDock {
                 self.isTemporarilyShowingDock = true
                 NSApp.setActivationPolicy(.regular)
-                print("✅ [NOTIF] Dock activé temporairement pour l'envoi de notifications")
+                print("✅ [NOTIF] Dock activé temporairement (.regular)")
+            } else {
+                print("🔔 [NOTIF] Dock déjà temporairement activé")
             }
 
             UNUserNotificationCenter.current().add(request) { error in
@@ -509,11 +515,28 @@ private final class NotificationDeliveryCoordinator {
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     self.accessoryNotificationCount -= 1
+                    print("🔔 [NOTIF] Counter après délai: \(self.accessoryNotificationCount)")
+
                     if self.accessoryNotificationCount <= 0 {
                         self.accessoryNotificationCount = 0
                         self.isTemporarilyShowingDock = false
-                        (NSApp.delegate as? AppDelegate)?.updateActivationPolicy()
-                        print("✅ [NOTIF] Dock restauré selon les préférences utilisateur")
+
+                        let showInDock = AppSettings.shared.showInDock
+                        print("🔔 [NOTIF] Restauration: showInDock = \(showInDock)")
+
+                        // Restaurer directement la policy selon les préférences
+                        if showInDock {
+                            print("🔧 [NOTIF] Restauration vers .regular (Dock visible)")
+                            NSApp.setActivationPolicy(.regular)
+                        } else {
+                            print("🔧 [NOTIF] Restauration vers .accessory (menu bar uniquement)")
+                            NSApp.setActivationPolicy(.accessory)
+                        }
+
+                        let newPolicy = NSApp.activationPolicy()
+                        print("✅ [NOTIF] Policy restaurée: \(newPolicy.rawValue) (0=regular, 1=accessory)")
+                    } else {
+                        print("🔔 [NOTIF] Counter > 0, attente d'autres notifications")
                     }
                 }
             }

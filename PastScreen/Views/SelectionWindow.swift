@@ -65,6 +65,7 @@ class SelectionWindow: NSWindow {
         // S'assurer que PastScreen devient app active pour capter le premier clic
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
+        print("✅ [WINDOW] SelectionWindow activated and shown")
     }
 
     func hide() {
@@ -89,6 +90,12 @@ class SelectionOverlayView: NSView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
+    }
+
+    // CRITICAL: Accept first mouse click even when app is not active
+    // Without this, users need to click twice when Finder/Desktop is frontmost
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
     }
 
     override func mouseDown(with event: NSEvent) {

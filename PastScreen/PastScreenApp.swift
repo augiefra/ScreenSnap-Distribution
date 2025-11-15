@@ -573,6 +573,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     func updateActivationPolicy() {
         let showInDock = settings.showInDock
+        let currentPolicy = NSApp.activationPolicy()
+
+        print("🔧 [DOCK] updateActivationPolicy() - showInDock: \(showInDock), currentPolicy: \(currentPolicy.rawValue)")
 
         if showInDock {
             NSApp.setActivationPolicy(.regular)
@@ -581,6 +584,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             NSApp.setActivationPolicy(.accessory)
             print("✅ [DOCK] Mode menu bar uniquement activé (pas de Dock)")
         }
+
+        let newPolicy = NSApp.activationPolicy()
+        print("🔧 [DOCK] Nouvelle policy: \(newPolicy.rawValue)")
     }
 }
 
