@@ -91,7 +91,6 @@ class SelectionOverlayView: NSView {
         super.init(frame: frame)
         self.wantsLayer = true
         self.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
-        setupGlobalEventMonitors()
     }
 
     required init?(coder: NSCoder) {
