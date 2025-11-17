@@ -7,6 +7,28 @@
     <language>en</language>
 
     <item>
+      <title>Version 1.6</title>
+      <description><![CDATA[
+        <h2>PastScreen 1.6 - Multi-screen & clipboard polish</h2>
+        <ul>
+          <li><strong>ScreenCaptureKit fixes:</strong> Captures respect the active display, eliminating shifted regions and invalid parameter errors.</li>
+          <li><strong>Overlay reliability:</strong> The Liquid Glass selector converts coordinates correctly across monitors and cleans up instantly after cancel.</li>
+          <li><strong>Clipboard smarts:</strong> Browsers/design tools now get both image data and a fallback file path, while IDEs like Zed still receive path-only content.</li>
+          <li><strong>Outlook detection:</strong> Microsoft Outlook is treated as a browser so captures paste the full PNG by default.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Mon, 17 Nov 2025 17:25:00 +0100</pubDate>
+      <sparkle:version>9</sparkle:version>
+      <sparkle:shortVersionString>1.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/augiefra/PastScreen/releases/download/v1.6/PastScreen-1.6.zip"
+        sparkle:edSignature="Jtera9ciYokIZIcEFjIAu2GwmJ5IOdzMDdsXWn9XO1ez+PrOYRhnX9cvjZK1vCNPyN0C4+nE8mWpgpcyPCy8Cw=="
+        length="3218725"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>Version 1.5</title>
       <description><![CDATA[
         <h2>PastScreen 1.5 - Apple-first refinements</h2>
