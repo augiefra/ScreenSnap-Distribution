@@ -64,12 +64,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("🎯 [APP] ====== APPLICATION DID FINISH LAUNCHING ======")
-        // Vérifier qu'une seule instance tourne (temporairement désactivé pour test)
-        // if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "").count > 1 {
-        //     print("Une autre instance de PastScreen est déjà en cours d'exécution")
-        //     NSApp.terminate(nil)
-        //     return
-        // }
+        // Vérifier qu'une seule instance tourne
+        if let bundleID = Bundle.main.bundleIdentifier {
+            let runningInstances = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            if runningInstances.count > 1 {
+                NSLog("⚠️ [APP] Une autre instance de PastScreen est déjà en cours d'exécution (\(runningInstances.count))")
+                NSLog("💡 [APP] PastScreen est limité à une seule instance - arrêt de cette nouvelle instance")
+                NSApp.terminate(nil)
+                return
+            }
+        }
 
         // Setup notification center delegate
         UNUserNotificationCenter.current().delegate = self

@@ -61,6 +61,7 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
         "com.kagi.kagimacOS": .webBrowser, // Orion
         "com.pushplaylabs.Sidekick": .webBrowser,
         "com.maxthon.mac.Maxthon": .webBrowser,
+        "com.microsoft.Outlook": .webBrowser,
 
         // Design & Communication Tools
         "com.figma.Desktop": .designTool,
@@ -207,10 +208,9 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             do {
                 // Essayer d'abord avec ScreenCaptureKit (moderne)
                 let cgImage = try await self.captureWithScreenCaptureKit(rect: rect, excludeWindowIDs: excludeWindowIDs)
-                let nsImage = NSImage(cgImage: cgImage, size: rect.size)
 
-                print("✅ [CAPTURE] Capture ScreenCaptureKit réussie - Taille: \(nsImage.size)")
-                await self.handleSuccessfulCapture(image: nsImage)
+                print("✅ [CAPTURE] Capture ScreenCaptureKit réussie - Taille: \(cgImage.width)x\(cgImage.height)")
+                await self.handleSuccessfulCapture(cgImage: cgImage, selectionRect: rect)
 
             } catch {
                 print("❌ [CAPTURE] ScreenCaptureKit a échoué: \(error.localizedDescription)")
@@ -229,7 +229,7 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
 
     // Gestion commune du succès
     @MainActor
-    private func handleSuccessfulCapture(image: NSImage) {
+    private func handleSuccessfulCapture(cgImage: CGImage, selectionRect: CGRect) {
         // Play capture sound if enabled
         if AppSettings.shared.playSoundOnCapture {
             if let sound = NSSound(named: NSSound.Name("Glass")) {
@@ -239,14 +239,30 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             }
         }
 
-        print("📋 [CAPTURE] Copie vers le presse-papier...")
-        self.copyToClipboard(image: image)
+        let rep = NSBitmapImageRep(cgImage: cgImage)
+        rep.size = selectionRect.size
+        let nsImage = NSImage(size: selectionRect.size)
+        nsImage.addRepresentation(rep)
 
-        // Save to file if enabled
-        var filePath: String? = nil
+        print("📋 [CAPTURE] Copie vers le presse-papier...")
+        let clipboardFilePath = self.copyToClipboard(
+            image: nsImage,
+            cgImage: cgImage,
+            pointSize: selectionRect.size
+        )
+
+        // Save to file if enabled (or reuse path already created for clipboard)
+        var filePath: String? = clipboardFilePath
         if AppSettings.shared.saveToFile {
-            print("💾 [CAPTURE] Sauvegarde vers fichier...")
-            filePath = self.saveToFileAndGetPath(image: image)
+            if filePath == nil {
+                print("💾 [CAPTURE] Sauvegarde vers fichier (préférence utilisateur)...")
+                filePath = self.saveToFileAndGetPath(
+                    cgImage: cgImage,
+                    pointSize: selectionRect.size
+                )
+            } else {
+                print("💾 [CAPTURE] Fichier déjà enregistré pour le clipboard, réutilisation du même chemin")
+            }
         }
 
         if let filePath = filePath {
@@ -297,7 +313,39 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
                 print("✅ [ScreenCaptureKit] Using fallback display ID: \(targetDisplay.displayID)")
             }
 
-            print("✅ [ScreenCaptureKit] Capturing from display ID: \(targetDisplay.displayID) for rect: \(rect)")
+            let screenFrame = nsScreen.frame
+            // AppKit uses a global coordinate system origin at bottom-left,
+            // but our SelectionWindow delivers a rect in global coordinates with the origin
+            // still bottom-left yet user selection is visually referenced from the top-left
+            // of each screen. ScreenCaptureKit expects the rect relative to the display's
+            // coordinate space with origin top-left, so we need to flip the Y axis.
+            let offsetX = rect.origin.x - screenFrame.origin.x
+            let offsetY = rect.origin.y - screenFrame.origin.y
+            let flippedY = screenFrame.size.height - offsetY - rect.size.height
+
+            var rectInScreenPoints = CGRect(
+                x: offsetX,
+                y: flippedY,
+                width: rect.width,
+                height: rect.height
+            )
+
+            let screenBounds = CGRect(origin: .zero, size: screenFrame.size)
+            var relativeRect = rectInScreenPoints
+            if !screenBounds.contains(rectInScreenPoints) {
+                print("⚠️ [ScreenCaptureKit] Selection extends outside screen bounds, clipping…")
+                relativeRect = rectInScreenPoints.intersection(screenBounds)
+                guard !relativeRect.isNull else {
+                    throw NSError(domain: "ScreenshotService", code: -4, userInfo: [
+                        NSLocalizedDescriptionKey: "Sélection hors de l'écran sélectionné"
+                    ])
+                }
+                print("✂️ [ScreenCaptureKit] Relative rect after clipping: \(relativeRect)")
+            }
+
+            print("✅ [ScreenCaptureKit] Capturing from display ID: \(targetDisplay.displayID)")
+            print("   Global rect: \(rect) on screen frame: \(screenFrame)")
+            print("   Relative rect: \(relativeRect)")
 
             // 4. Convert window IDs to SCWindow objects for exclusion
             let excludeWindows = content.windows.filter { window in
@@ -315,14 +363,14 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
 
             // 7. Configuration avec résolution native (points × scale factor = pixels)
             let config = SCStreamConfiguration()
-            config.width = Int(rect.width * scaleFactor)  // Convert points to pixels
-            config.height = Int(rect.height * scaleFactor)  // Convert points to pixels
-            config.sourceRect = rect  // ScreenCaptureKit s'occupe des coordonnées
+            config.width = Int(relativeRect.width * scaleFactor)  // Convert points to pixels
+            config.height = Int(relativeRect.height * scaleFactor)  // Convert points to pixels
+            config.sourceRect = relativeRect  // Relative to target display coordinates
             config.scalesToFit = false
             config.showsCursor = false
             config.captureResolution = .best
 
-            print("⚙️ [ScreenCaptureKit] Config: \(config.width)x\(config.height) pixels (\(Int(rect.width))x\(Int(rect.height)) points × \(scaleFactor)), sourceRect: \(config.sourceRect)")
+            print("⚙️ [ScreenCaptureKit] Config: \(config.width)x\(config.height) pixels (\(Int(relativeRect.width))x\(Int(relativeRect.height)) points × \(scaleFactor)), sourceRect (relative): \(config.sourceRect)")
 
             // 8. Capture avec l'API officielle
             let cgImage = try await SCScreenshotManager.captureImage(
@@ -396,16 +444,23 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
     }
 
     /// Copy image to clipboard with smart format detection
-    private func copyToClipboard(image: NSImage) {
+    @discardableResult
+    private func copyToClipboard(
+        image: NSImage,
+        cgImage: CGImage,
+        pointSize: CGSize
+    ) -> String? {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
         let appCategory = detectFrontmostApp()
+        var filePath: String? = nil
 
         switch appCategory {
         case .codeEditor:
             // Code editors prefer file paths for Markdown linking
-            if let imagePath = saveToFileAndGetPath(image: image) {
+            if let imagePath = saveToFileAndGetPath(cgImage: cgImage, pointSize: pointSize) {
+                filePath = imagePath
                 pasteboard.setString(imagePath, forType: .string)
                 print("✅ [CLIPBOARD] File path copied for code editor: \(imagePath)")
             } else {
@@ -417,26 +472,35 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
         case .webBrowser, .designTool:
             // Browsers and design tools need actual image data
             pasteboard.writeObjects([image])
-            print("✅ [CLIPBOARD] Image data copied for browser/design tool")
+            if let imagePath = saveToFileAndGetPath(cgImage: cgImage, pointSize: pointSize) {
+                filePath = imagePath
+                pasteboard.setString(imagePath, forType: .string)
+                print("✅ [CLIPBOARD] Image data copied for browser/design tool + file path available: \(imagePath)")
+            } else {
+                print("✅ [CLIPBOARD] Image data copied for browser/design tool (no path)")
+            }
 
         case .unknown:
             // Unknown apps: write BOTH formats for maximum compatibility
             pasteboard.writeObjects([image])
-            if let imagePath = saveToFileAndGetPath(image: image) {
+            if let imagePath = saveToFileAndGetPath(cgImage: cgImage, pointSize: pointSize) {
+                filePath = imagePath
                 pasteboard.setString(imagePath, forType: .string)
                 print("✅ [CLIPBOARD] Both image data AND file path copied (unknown app)")
             } else {
                 print("✅ [CLIPBOARD] Image data copied (file save failed)")
             }
         }
+        return filePath
     }
 
-    /// Save image to file and return the path (for file path clipboard)
-    private func saveToFileAndGetPath(image: NSImage) -> String? {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData) else {
-            return nil
-        }
+    /// Save image to file (with DPI metadata) and return the path
+    private func saveToFileAndGetPath(
+        cgImage: CGImage,
+        pointSize: CGSize
+    ) -> String? {
+        let bitmapImage = NSBitmapImageRep(cgImage: cgImage)
+        bitmapImage.size = pointSize
 
         let fileType: NSBitmapImageRep.FileType
         let fileExtension: String
@@ -474,46 +538,6 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             print("❌ [CLIPBOARD] Failed to save file: \(error)")
             return nil
         }
-    }
-
-    private func saveToFile(image: NSImage) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData) else {
-            return
-        }
-
-        let fileType: NSBitmapImageRep.FileType
-        let fileExtension: String
-
-        switch AppSettings.shared.imageFormat {
-        case "jpeg":
-            fileType = .jpeg
-            fileExtension = "jpg"
-        default:
-            fileType = .png
-            fileExtension = "png"
-        }
-
-        guard let data = bitmapImage.representation(using: fileType, properties: [:]) else {
-            return
-        }
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
-        let timestamp = dateFormatter.string(from: Date())
-        let filename = "Screenshot-\(timestamp).\(fileExtension)"
-
-        // Utiliser le dossier temporaire si pas de dossier personnalisé
-        let savePath: String
-        if AppSettings.shared.saveFolderPath.isEmpty || AppSettings.shared.saveFolderPath == NSHomeDirectory() + "/Desktop/" {
-            // Utiliser le dossier temporaire du système
-            savePath = NSTemporaryDirectory() + filename
-        } else {
-            AppSettings.shared.ensureFolderExists()
-            savePath = AppSettings.shared.saveFolderPath + filename
-        }
-
-        try? data.write(to: URL(fileURLWithPath: savePath))
     }
 
     private func showErrorNotification(error: Error) {

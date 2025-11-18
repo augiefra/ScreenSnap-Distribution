@@ -233,7 +233,7 @@ class SelectionOverlayView: NSView {
             if rect.width > 10 && rect.height > 10 {
                 print("✅ [GLOBAL] MouseUp - Valid selection: \(rect)")
                 DispatchQueue.main.async { [weak self] in
-                    self?.onComplete?(rect)
+                    self?.emitSelection(rect: rect)
                 }
             } else {
                 print("❌ [GLOBAL] MouseUp - Selection too small, canceling")
@@ -303,13 +303,27 @@ class SelectionOverlayView: NSView {
         // Defer callbacks to avoid crash when window is hidden/deallocated during event handling
         if rect.width > 10 && rect.height > 10 {
             DispatchQueue.main.async { [weak self] in
-                self?.onComplete?(rect)
+                self?.emitSelection(rect: rect)
             }
         } else {
             DispatchQueue.main.async { [weak self] in
                 self?.onCancel?()
             }
         }
+    }
+
+    /// Convert local selection rect to global screen coordinates before sending
+    private func emitSelection(rect: CGRect) {
+        guard let window = self.window else {
+            onCancel?()
+            return
+        }
+
+        // Convert from view coordinates → window → screen to get the actual desktop rect
+        let rectInWindow = convert(rect, to: nil)
+        let rectOnScreen = window.convertToScreen(rectInWindow)
+        print("🌐 [GLOBAL] windowOrigin: \(window.frame.origin), rectInWindow: \(rectInWindow), rectOnScreen: \(rectOnScreen)")
+        onComplete?(rectOnScreen)
     }
 
     override func draw(_ dirtyRect: NSRect) {

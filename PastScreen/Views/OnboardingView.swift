@@ -352,8 +352,10 @@ struct OnboardingContentView: View {
                 scale = 1.0
                 opacity = 1.0
             }
-            // Don't auto-check permissions to avoid system pop-ups
-            // checkPermissions()
+            refreshPermissionState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshPermissionState()
         }
     }
 
@@ -466,18 +468,13 @@ struct OnboardingContentView: View {
         }
     }
 
-    private func checkPermissions() {
-        // Silently check accessibility permission (doesn't trigger pop-up)
-        accessibilityGranted = AXIsProcessTrusted()
+    private func refreshPermissionState() {
+        let manager = PermissionManager.shared
+        manager.checkAccessibilityPermission()
+        manager.checkScreenRecordingPermission()
 
-        // Silently check screen recording permission
-        if #available(macOS 14.0, *) {
-            // For macOS 14+, we can't check without triggering permission request
-            // So we don't check automatically
-            screenRecordingGranted = false
-        } else {
-            screenRecordingGranted = CGPreflightScreenCaptureAccess()
-        }
+        accessibilityGranted = manager.accessibilityStatus == .authorized
+        screenRecordingGranted = manager.screenRecordingStatus == .authorized
     }
 
     private func requestScreenRecordingPermission() {
@@ -499,6 +496,7 @@ struct OnboardingContentView: View {
                         let content = try await SCShareableContent.current
                         if !content.displays.isEmpty {
                             self.screenRecordingGranted = true
+                            PermissionManager.shared.checkScreenRecordingPermission()
                             timer.invalidate()
                             print("✅ Screen Recording permission granted (detected via polling)")
                         }
@@ -509,6 +507,7 @@ struct OnboardingContentView: View {
             } else {
                 if CGPreflightScreenCaptureAccess() {
                     self.screenRecordingGranted = true
+                    PermissionManager.shared.checkScreenRecordingPermission()
                     timer.invalidate()
                     print("✅ Screen Recording permission granted (detected via polling)")
                 }
@@ -531,6 +530,7 @@ struct OnboardingContentView: View {
         Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
             if AXIsProcessTrusted() {
                 self.accessibilityGranted = true
+                PermissionManager.shared.checkAccessibilityPermission()
                 timer.invalidate()
                 print("✅ Accessibility permission granted (detected via polling)")
             }

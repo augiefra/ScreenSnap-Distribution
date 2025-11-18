@@ -25,6 +25,7 @@ cd "$REPO_DIR"
 APP_PATH=${1:-"$HOME/Desktop/PastScreen/PastScreen.app"}
 OUTPUT_DIR=${2:-"$HOME/Desktop/PastScreen"}
 APPCAST_PATH="$REPO_DIR/appcast.xml"
+RELEASE_NOTES_FILE=${RELEASE_NOTES_FILE:-}
 
 if [[ ! -d "$APP_PATH" ]]; then
   echo "❌ App bundle not found at: $APP_PATH" >&2
@@ -44,6 +45,7 @@ ZIP_PATH="$OUTPUT_DIR/PastScreen-$VERSION.zip"
 rm -f "$ZIP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 SIZE=$(stat -f%z "$ZIP_PATH")
+MIN_OS=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$PLIST" 2>/dev/null || echo "14.0")
 
 SIGN_TOOL=$(ls -1d "$HOME"/Library/Developer/Xcode/DerivedData/*/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update 2>/dev/null | head -n 1 || true)
 if [[ -z "$SIGN_TOOL" || ! -x "$SIGN_TOOL" ]]; then
@@ -61,7 +63,38 @@ if [[ -z "$SIGNATURE" || -z "$LENGTH" ]]; then
 fi
 
 URL="https://github.com/augiefra/PastScreen/releases/download/v$VERSION/PastScreen-$VERSION.zip"
-perl -0pi -e "s|(        url=\"https://github\.com/augiefra/PastScreen/releases/download/v$VERSION/PastScreen-$VERSION\.zip\"\n        sparkle:edSignature=\")([^\"]*)(\"\n        length=\")([^\"]*)(\"\n        type=\"application/octet-stream\" />)|        url=\"$URL\"\n        sparkle:edSignature=\"$SIGNATURE\"\n        length=\"$LENGTH\"\n        type=\"application/octet-stream\" />|" "$APPCAST_PATH"
+
+if ! grep -q "sparkle:shortVersionString>$VERSION" "$APPCAST_PATH"; then
+  PUB_DATE=$(date '+%a, %d %b %Y %H:%M:%S %z')
+  if [[ -n "$RELEASE_NOTES_FILE" && -f "$RELEASE_NOTES_FILE" ]]; then
+    NOTES_CONTENT=$(sed 's/^/        /' "$RELEASE_NOTES_FILE")
+  else
+    NOTES_CONTENT="        <h2>PastScreen $VERSION</h2>\n        <ul>\n          <li><strong>Release notes:</strong> à compléter dans appcast.xml.</li>\n        </ul>"
+  fi
+
+  NEW_ITEM=$(cat <<EOF
+    <item>
+      <title>Version $VERSION</title>
+      <description><![CDATA[
+$NOTES_CONTENT
+      ]]></description>
+      <pubDate>$PUB_DATE</pubDate>
+      <sparkle:version>$BUILD</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>$MIN_OS</sparkle:minimumSystemVersion>
+      <enclosure
+        url="$URL"
+        sparkle:edSignature="$SIGNATURE"
+        length="$LENGTH"
+        type="application/octet-stream" />
+    </item>
+
+EOF
+)
+  perl -0pi -e "s|(<language>.*</language>\n\n)|\${1}$NEW_ITEM|" "$APPCAST_PATH"
+else
+  perl -0pi -e "s|(        url=\"https://github\.com/augiefra/PastScreen/releases/download/v$VERSION/PastScreen-$VERSION\.zip\"\n        sparkle:edSignature=\")([^\"]*)(\"\n        length=\")([^\"]*)(\"\n        type=\"application/octet-stream\" />)|        url=\"$URL\"\n        sparkle:edSignature=\"$SIGNATURE\"\n        length=\"$LENGTH\"\n        type=\"application/octet-stream\" />|" "$APPCAST_PATH"
+fi
 
 cat <<EOF
 
