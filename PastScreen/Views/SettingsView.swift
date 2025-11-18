@@ -49,6 +49,9 @@ struct GeneralSettingsTab: View {
             }
 #endif
             Section {
+                Toggle("Lancer au démarrage du Mac", isOn: $settings.launchAtLogin)
+                    .help("Lance PastScreen automatiquement au démarrage de votre Mac")
+
                 Toggle("Afficher l'icône dans le Dock", isOn: $settings.showInDock)
                     .help("Affiche l'icône de l'application dans le Dock. Désactivez pour passer en mode barre de menus uniquement.")
 

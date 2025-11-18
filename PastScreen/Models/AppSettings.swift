@@ -57,6 +57,13 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var launchAtLogin: Bool {
+        didSet {
+            UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin")
+            LaunchAtLoginManager.shared.setEnabled(launchAtLogin)
+        }
+    }
+
     private init() {
         // Load saved values or use defaults
         self.saveToFile = UserDefaults.standard.object(forKey: "saveToFile") as? Bool ?? true  // Changed default to true
@@ -69,6 +76,7 @@ class AppSettings: ObservableObject {
         self.globalHotkeyEnabled = UserDefaults.standard.object(forKey: "globalHotkeyEnabled") as? Bool ?? true
         self.showInDock = UserDefaults.standard.object(forKey: "showInDock") as? Bool ?? true
         self.autoCheckUpdates = UserDefaults.standard.object(forKey: "autoCheckUpdates") as? Bool ?? true  // Default: auto-check enabled
+        self.launchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool ?? false  // Default: disabled
 
         ensureFolderExists()
     }
