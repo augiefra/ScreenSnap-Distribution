@@ -7,6 +7,23 @@
     <language>en</language>
 
     <item>
+      <title>Version 1.7</title>
+      <description><![CDATA[
+        <h2>PastScreen 1.7</h2>
+        <ul>
+          <li><strong>Release notes:</strong> à compléter dans appcast.xml.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Tue, 18 Nov 2025 15:09:24 +0100</pubDate>
+      <sparkle:version>11</sparkle:version>
+      <sparkle:shortVersionString>1.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/augiefra/PastScreen/releases/download/v1.7/PastScreen-1.7.zip"
+        sparkle:edSignature="lCW9PTm9yRnS7mPKMansjguNguLV2rNv2z1Qu4enoVHEuY04/Uj5jiuqKaqiZHhUk1P4YJdwa2sHAVIP3/X6Cg=="
+        length="3268593"
+        type="application/octet-stream" />
+    </item>    <item>
       <title>Version 1.6.1</title>
       <description><![CDATA[
         <h2>PastScreen 1.6.1</h2>
