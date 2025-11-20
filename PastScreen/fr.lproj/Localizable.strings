@@ -3,6 +3,9 @@
 "menu.capture_area" = "Capturer une zone ⌥⌘S";
 "menu.capture_fullscreen" = "Capturer l'écran complet";
 "menu.show_last" = "Afficher la dernière capture";
+"menu.history" = "Historique";
+"menu.history.empty" = "Aucune capture récente";
+"menu.history.clear" = "Effacer l'historique";
 "menu.preferences" = "Préférences...";
 "menu.check_updates" = "Vérifier les mises à jour...";
 "menu.quit" = "Quitter PastScreen";
@@ -124,3 +127,8 @@
 "onboarding.permissions.accessibility.description" = "Nécessaire pour le raccourci global ⌥⌘S.\nCliquez ci-dessous pour autoriser.";
 "onboarding.permissions.grant" = "Autoriser";
 "onboarding.permissions.granted" = "Autorisé";
+
+/* Permission Alerts */
+"permission.request.header" = "PastScreen a besoin des autorisations suivantes pour fonctionner correctement :";
+"permission.request.footer" = "Veuillez les activer dans Réglages Système > Confidentialité et sécurité.";
+"permission.max_retries.message" = "PastScreen a atteint le nombre maximum de demandes d'autorisation.\n\nVeuillez activer manuellement";

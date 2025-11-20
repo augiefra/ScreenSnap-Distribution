@@ -11,6 +11,7 @@ import CoreGraphics
 import SwiftUI
 import UserNotifications
 import ScreenCaptureKit
+import Vision
 
 // MARK: - App Category Detection
 
@@ -32,6 +33,7 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
         "com.microsoft.VSCodeInsiders": .codeEditor,
         "dev.zed.Zed": .codeEditor,
         "com.todesktop.230313mzl4w4u92": .codeEditor, // Cursor
+        "com.cursor.Cursor": .codeEditor,
         "com.sublimetext.4": .codeEditor,
         "com.apple.dt.Xcode": .codeEditor,
         "com.jetbrains.intellij": .codeEditor,
@@ -40,6 +42,13 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
         "com.uranusjr.macdown": .codeEditor,
         "abnerworks.Typora": .codeEditor,
         "md.obsidian": .codeEditor,
+
+        // Terminals
+        "com.apple.Terminal": .codeEditor,
+        "com.googlecode.iterm2": .codeEditor,
+        "co.zeit.hyper": .codeEditor,
+        "net.kovidgoyal.kitty": .codeEditor,
+        "org.alacritty": .codeEditor,
 
         // Web Browsers
         "com.apple.Safari": .webBrowser,
@@ -267,6 +276,7 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
 
         if let filePath = filePath {
             NotificationCenter.default.post(name: .screenshotCaptured, object: nil, userInfo: ["filePath": filePath])
+            AppSettings.shared.addToHistory(filePath)
         }
 
         // Show notification and visual feedback
@@ -323,7 +333,7 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             let offsetY = rect.origin.y - screenFrame.origin.y
             let flippedY = screenFrame.size.height - offsetY - rect.size.height
 
-            var rectInScreenPoints = CGRect(
+            let rectInScreenPoints = CGRect(
                 x: offsetX,
                 y: flippedY,
                 width: rect.width,
@@ -474,7 +484,9 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
             pasteboard.writeObjects([image])
             if let imagePath = saveToFileAndGetPath(cgImage: cgImage, pointSize: pointSize) {
                 filePath = imagePath
-                pasteboard.setString(imagePath, forType: .string)
+                // Use NSURL instead of String to prevent web apps from preferring text over image
+                let url = NSURL(fileURLWithPath: imagePath)
+                pasteboard.writeObjects([url])
                 print("✅ [CLIPBOARD] Image data copied for browser/design tool + file path available: \(imagePath)")
             } else {
                 print("✅ [CLIPBOARD] Image data copied for browser/design tool (no path)")
@@ -482,11 +494,15 @@ class ScreenshotService: NSObject, SelectionWindowDelegate {
 
         case .unknown:
             // Unknown apps: write BOTH formats for maximum compatibility
+            // We use URL object instead of String to prevent web apps (like DIA/ChatGPT)
+            // from prioritizing the file path text over the image content.
+            // Modern editors (VSCode, Zed) should handle file URLs correctly.
             pasteboard.writeObjects([image])
             if let imagePath = saveToFileAndGetPath(cgImage: cgImage, pointSize: pointSize) {
                 filePath = imagePath
-                pasteboard.setString(imagePath, forType: .string)
-                print("✅ [CLIPBOARD] Both image data AND file path copied (unknown app)")
+                let url = NSURL(fileURLWithPath: imagePath)
+                pasteboard.writeObjects([url])
+                print("✅ [CLIPBOARD] Both image data AND file URL copied (unknown app)")
             } else {
                 print("✅ [CLIPBOARD] Image data copied (file save failed)")
             }

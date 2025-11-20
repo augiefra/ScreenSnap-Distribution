@@ -3,6 +3,9 @@
 "menu.capture_area" = "Capturar área ⌥⌘S";
 "menu.capture_fullscreen" = "Capturar pantalla completa";
 "menu.show_last" = "Mostrar última captura";
+"menu.history" = "Historial";
+"menu.history.empty" = "Sin capturas recientes";
+"menu.history.clear" = "Borrar historial";
 "menu.preferences" = "Preferencias...";
 "menu.quit" = "Salir de PastScreen";
 
@@ -123,3 +126,8 @@
 "onboarding.permissions.accessibility.description" = "Requerido para el atajo global ⌥⌘S.\nHaz clic abajo para conceder permiso.";
 "onboarding.permissions.grant" = "Conceder permiso";
 "onboarding.permissions.granted" = "Permiso concedido";
+
+/* Permission Alerts */
+"permission.request.header" = "PastScreen necesita los siguientes permisos para funcionar correctamente:";
+"permission.request.footer" = "Por favor habilítelos en Ajustes del Sistema > Privacidad y seguridad.";
+"permission.max_retries.message" = "PastScreen ha alcanzado el número máximo de solicitudes de permiso.\n\nPor favor habilite manualmente";

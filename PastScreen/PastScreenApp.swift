@@ -20,6 +20,7 @@ import TipKit
 extension Notification.Name {
     static let screenshotCaptured = Notification.Name("screenshotCaptured")
     static let showInDockChanged = Notification.Name("showInDockChanged")
+    static let hotKeyPressed = Notification.Name("hotKeyPressed")
 }
 
 @main
@@ -58,10 +59,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     private var updaterController: SPUStandardUpdaterController?
     #endif
 
-    // Pour le raccourci clavier global
-    var globalEventMonitor: Any?
     var settings = AppSettings.shared
-    private var settingsObserver: AnyCancellable?
+    private let hotKeyManager = HotKeyManager.shared
 
     // Track last screenshot for "Reveal in Finder" menu item
     var lastScreenshotPath: String?
@@ -135,12 +134,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         testNotification()
         #endif
 
-        // Configurer le raccourci clavier global Option + Cmd + S
-        // Will work only if Accessibility permission is granted via Onboarding
-        setupGlobalHotkey()
+        // Start monitoring for the global hotkey. The manager will handle settings changes internally.
+        hotKeyManager.startMonitoring()
 
-        // Observer les changements de settings pour le raccourci clavier
-        setupSettingsObserver()
+        // Observe when the hotkey is pressed
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleHotKeyPressed),
+            name: .hotKeyPressed,
+            object: nil
+        )
 
         // Check permission status (read-only, no popups)
         permissionManager.checkAllPermissions()
@@ -227,6 +230,38 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         revealItem.isEnabled = (lastScreenshotPath != nil)
         menu.addItem(revealItem)
 
+        // History Submenu
+        let historyMenu = NSMenu()
+        let historyItem = NSMenuItem(title: NSLocalizedString("menu.history", comment: ""), action: nil, keyEquivalent: "")
+        historyItem.submenu = historyMenu
+
+        if #available(macOS 11.0, *) {
+            historyItem.image = NSImage(systemSymbolName: "clock", accessibilityDescription: nil)
+        }
+
+        let history = AppSettings.shared.captureHistory
+
+        if history.isEmpty {
+            let emptyItem = NSMenuItem(title: NSLocalizedString("menu.history.empty", comment: ""), action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            historyMenu.addItem(emptyItem)
+        } else {
+            for path in history {
+                let filename = (path as NSString).lastPathComponent
+                let item = NSMenuItem(title: filename, action: #selector(copyFromHistory(_:)), keyEquivalent: "")
+                item.representedObject = path
+                item.target = self
+                historyMenu.addItem(item)
+            }
+
+            historyMenu.addItem(NSMenuItem.separator())
+            let clearItem = NSMenuItem(title: NSLocalizedString("menu.history.clear", comment: ""), action: #selector(clearHistory), keyEquivalent: "")
+            clearItem.target = self
+            historyMenu.addItem(clearItem)
+        }
+
+        menu.addItem(historyItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let prefsItem = NSMenuItem(title: NSLocalizedString("menu.preferences", comment: ""), action: #selector(openPreferences), keyEquivalent: ",")
@@ -267,6 +302,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
+    @objc func handleHotKeyPressed() {
+        print("⚡️ [APP] Hotkey notification received, triggering capture.")
+        requestScreenRecordingIfNeeded { [weak self] in
+            self?.performAreaCapture(source: .hotkey)
+        }
+    }
+
     @objc func revealLastScreenshot() {
         guard let path = lastScreenshotPath else {
             print("⚠️ Aucune capture récente")
@@ -289,6 +331,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         print("📁 [MENU] Ouverture du Finder: \(path)")
         NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
+    }
+
+    @objc func copyFromHistory(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+
+        guard FileManager.default.fileExists(atPath: path) else {
+            print("⚠️ [HISTORY] File not found: \(path)")
+            return
+        }
+
+        guard let image = NSImage(contentsOfFile: path) else {
+            print("⚠️ [HISTORY] Failed to load image from: \(path)")
+            return
+        }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+        pasteboard.setString(path, forType: .string)
+
+        // Play sound for feedback
+        if AppSettings.shared.playSoundOnCapture {
+            NSSound(named: "Pop")?.play()
+        }
+
+        // Show small notification/feedback
+        DynamicIslandManager.shared.show(message: "Copied", duration: 1.5)
+    }
+
+    @objc func clearHistory() {
+        AppSettings.shared.clearHistory()
     }
 
     @objc func openPreferences() {
@@ -378,8 +451,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        settingsObserver?.cancel()
-        removeGlobalHotkey()
+        // HotKeyManager cleans itself up via deinit, so we don't need to call stopMonitoring.
         if let statusItem = statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
         }
@@ -486,74 +558,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     // MARK: - Raccourci clavier global
 
-    func setupSettingsObserver() {
-        // Observer les changements du setting globalHotkeyEnabled
-        settingsObserver = settings.$globalHotkeyEnabled.sink { [weak self] enabled in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if enabled {
-                    // setupGlobalHotkey will check permissions and warn if not granted
-                    // User should grant permissions via Onboarding, not auto-prompted here
-                    self.setupGlobalHotkey()
-                } else {
-                    self.removeGlobalHotkey()
-                }
-            }
-        }
-    }
-
-    func setupGlobalHotkey() {
-        // Ne pas créer plusieurs moniteurs
-        removeGlobalHotkey()
-
-        // Vérifier si le raccourci est activé dans les settings
-        guard settings.globalHotkeyEnabled else {
-            print("Raccourci clavier global désactivé dans les préférences")
-            return
-        }
-
-        let trusted = AXIsProcessTrusted()
-        if !trusted {
-            print("⚠️ [HOTKEY] L'application n'a pas les autorisations d'accessibilité!")
-            print("⚠️ [HOTKEY] Le raccourci global ne fonctionnera PAS sans cette autorisation")
-            print("💡 [HOTKEY] Permissions should be granted via Onboarding")
-            return
-        }
-
-        // Créer le moniteur d'événements global pour Option + Cmd + S
-        globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            // Vérifier que Option et Command sont pressés (en ignorant les autres flags système)
-            let hasOption = event.modifierFlags.contains(.option)
-            let hasCommand = event.modifierFlags.contains(.command)
-            let hasShift = event.modifierFlags.contains(.shift)
-            let hasControl = event.modifierFlags.contains(.control)
-
-            // Option + Command pressés, mais PAS Shift ou Control
-            let isCorrectModifiers = hasOption && hasCommand && !hasShift && !hasControl
-
-            // Code 1 pour 'S' (QWERTY layout)
-            let isS = event.keyCode == 1 || event.characters?.lowercased() == "s"
-
-            if isCorrectModifiers && isS {
-                print("🎯 [HOTKEY] Raccourci ⌥⌘S détecté!")
-                print("   keyCode: \(event.keyCode), characters: \(event.characters ?? "nil")")
-
-                self?.requestScreenRecordingIfNeeded {
-                    self?.performAreaCapture(source: .hotkey)
-                }
-            }
-        }
-
-        print("✅ [HOTKEY] Raccourci clavier global ⌥⌘S configuré avec succès")
-    }
-
-    func removeGlobalHotkey() {
-        if let monitor = globalEventMonitor {
-            NSEvent.removeMonitor(monitor)
-            globalEventMonitor = nil
-            print("❌ Raccourci clavier global supprimé")
-        }
-    }
+    // All global hotkey logic has been refactored into the HotKeyManager class
+    // to improve separation of concerns. The manager is initialized at launch
+    // and communicates with AppDelegate via NotificationCenter.
 
     // MARK: - Dock Icon Management
 

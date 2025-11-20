@@ -485,6 +485,10 @@ struct OnboardingContentView: View {
                 print("✅ [ONBOARDING] Screen Recording permission granted")
             } else {
                 print("⚠️ [ONBOARDING] Screen Recording permission denied or needs System Preferences")
+                // Fallback: open system settings if popup doesn't appear or user denied
+                DispatchQueue.main.async {
+                    self.openSystemPreferences(pane: "ScreenCapture")
+                }
             }
         }
 
@@ -523,6 +527,10 @@ struct OnboardingContentView: View {
                 print("✅ [ONBOARDING] Accessibility permission granted")
             } else {
                 print("⚠️ [ONBOARDING] Accessibility permission denied or needs System Preferences")
+                // Fallback: open system settings if popup doesn't appear or user denied
+                DispatchQueue.main.async {
+                    self.openSystemPreferences(pane: "Accessibility")
+                }
             }
         }
 

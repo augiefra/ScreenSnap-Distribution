@@ -244,17 +244,16 @@ class PermissionManager: ObservableObject {
 
     func showPermissionAlert(for permissions: [PermissionType]) {
         let alert = NSAlert()
-        alert.messageText = "Permissions Required"
-        alert.informativeText = """
-        PastScreen needs the following permissions to work properly:
+        alert.messageText = NSLocalizedString("error.permission_denied", value: "Permissions Required", comment: "")
 
-        \(permissions.map { "\($0.icon) \($0.rawValue)" }.joined(separator: "\n"))
+        let header = NSLocalizedString("permission.request.header", value: "PastScreen needs the following permissions to work properly:", comment: "")
+        let footer = NSLocalizedString("permission.request.footer", value: "Please enable them in System Preferences > Privacy & Security.", comment: "")
+        let permissionsList = permissions.map { "\($0.icon) \($0.rawValue)" }.joined(separator: "\n")
 
-        Please enable them in System Preferences > Privacy & Security.
-        """
+        alert.informativeText = "\(header)\n\n\(permissionsList)\n\n\(footer)"
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Open System Preferences")
-        alert.addButton(withTitle: "Later")
+        alert.addButton(withTitle: NSLocalizedString("error.open_system_prefs", value: "Open System Preferences", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("error.later", value: "Later", comment: ""))
 
         if alert.runModal() == .alertFirstButtonReturn {
             openSystemPreferences()
@@ -263,15 +262,16 @@ class PermissionManager: ObservableObject {
 
     private func showMaxRetriesAlert(for type: PermissionType) {
         let alert = NSAlert()
-        alert.messageText = "\(type.icon) \(type.rawValue) Permission Required"
-        alert.informativeText = """
-        PastScreen has reached the maximum number of permission requests.
+        alert.messageText = "\(type.icon) \(type.rawValue) " + NSLocalizedString("error.permission_denied", value: "Permission Required", comment: "")
 
-        Please manually enable \(type.rawValue) in:
+        let message = NSLocalizedString("permission.max_retries.message", value: "PastScreen has reached the maximum number of permission requests.\n\nPlease manually enable", comment: "")
+
+        alert.informativeText = """
+        \(message) \(type.rawValue):
         System Preferences > Privacy & Security > \(type.rawValue)
         """
         alert.alertStyle = .critical
-        alert.addButton(withTitle: "Open System Preferences")
+        alert.addButton(withTitle: NSLocalizedString("error.open_system_prefs", value: "Open System Preferences", comment: ""))
         alert.addButton(withTitle: "OK")
 
         if alert.runModal() == .alertFirstButtonReturn {
@@ -289,5 +289,19 @@ class PermissionManager: ObservableObject {
     func resetRetryCounters() {
         retryCount.removeAll()
         print("🔄 [PERMISSIONS] Retry counters reset")
+    }
+
+    // MARK: - Convenience Methods
+
+    func requestAccessibilityPermission(completion: @escaping (Bool) -> Void) {
+        requestPermission(.accessibility, completion: completion)
+    }
+
+    func requestScreenRecordingPermission(completion: @escaping (Bool) -> Void) {
+        requestPermission(.screenRecording, completion: completion)
+    }
+
+    var hasAllPermissions: Bool {
+        return screenRecordingStatus == .authorized && accessibilityStatus == .authorized
     }
 }

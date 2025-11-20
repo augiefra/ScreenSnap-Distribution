@@ -1,0 +1,13 @@
+# Mapping pour renommer les screenshots dans un ordre logique App Store
+# Format: ancien_nom -> nouveau_nom
+
+12_appstore_1440x900.png -> 01_icon_and_menubar.png
+Screenshot 2025-11-14 at 19.41.49_appstore_1440x900.png -> 02_welcome_onboarding.png
+Screenshot 2025-11-14 at 19.42.34_appstore_1440x900.png -> 03_permissions_screen_recording.png
+Screenshot 2025-11-14 at 19.42.52_appstore_1440x900.png -> 04_permissions_accessibility.png
+Screenshot 2025-11-14 at 19.43.05_appstore_1440x900.png -> 05_settings_general.png
+Screenshot 2025-11-14 at 19.43.17_appstore_1440x900.png -> 06_settings_capture.png
+Screenshot 2025-11-14 at 19.43.30_appstore_1440x900.png -> 07_settings_storage.png
+11_appstore_1440x900.png -> 08_developer_workflow.png
+13_appstore_1440x900.png -> 09_capture_in_action.png
+14_appstore_1440x900.png -> 10_menu_options.png

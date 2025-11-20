@@ -64,6 +64,12 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var captureHistory: [String] {
+        didSet {
+            UserDefaults.standard.set(captureHistory, forKey: "captureHistory")
+        }
+    }
+
     private init() {
         // Load saved values or use defaults
         self.saveToFile = UserDefaults.standard.object(forKey: "saveToFile") as? Bool ?? true  // Changed default to true
@@ -77,6 +83,7 @@ class AppSettings: ObservableObject {
         self.showInDock = UserDefaults.standard.object(forKey: "showInDock") as? Bool ?? true
         self.autoCheckUpdates = UserDefaults.standard.object(forKey: "autoCheckUpdates") as? Bool ?? true  // Default: auto-check enabled
         self.launchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool ?? false  // Default: disabled
+        self.captureHistory = UserDefaults.standard.stringArray(forKey: "captureHistory") ?? []
 
         ensureFolderExists()
     }
@@ -111,5 +118,26 @@ class AppSettings: ObservableObject {
             let itemPath = saveFolderPath + item
             try? fileManager.removeItem(atPath: itemPath)
         }
+    }
+
+    func addToHistory(_ path: String) {
+        var currentHistory = captureHistory
+
+        // Remove if exists to avoid duplicates (will be re-added at top)
+        currentHistory.removeAll { $0 == path }
+
+        // Add to top
+        currentHistory.insert(path, at: 0)
+
+        // Keep only last 10 items
+        if currentHistory.count > 10 {
+            currentHistory = Array(currentHistory.prefix(10))
+        }
+
+        captureHistory = currentHistory
+    }
+
+    func clearHistory() {
+        captureHistory.removeAll()
     }
 }

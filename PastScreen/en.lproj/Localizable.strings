@@ -3,6 +3,9 @@
 "menu.capture_area" = "Capture Area ⌥⌘S";
 "menu.capture_fullscreen" = "Capture Full Screen";
 "menu.show_last" = "Show Last Screenshot";
+"menu.history" = "History";
+"menu.history.empty" = "No recent captures";
+"menu.history.clear" = "Clear History";
 "menu.preferences" = "Preferences...";
 "menu.check_updates" = "Check for Updates...";
 "menu.quit" = "Quit PastScreen";
@@ -124,3 +127,8 @@
 "onboarding.permissions.accessibility.description" = "Required for global hotkey ⌥⌘S.\nClick below to grant permission.";
 "onboarding.permissions.grant" = "Grant Permission";
 "onboarding.permissions.granted" = "Permission Granted";
+
+/* Permission Alerts */
+"permission.request.header" = "PastScreen needs the following permissions to work properly:";
+"permission.request.footer" = "Please enable them in System Preferences > Privacy & Security.";
+"permission.max_retries.message" = "PastScreen has reached the maximum number of permission requests.\n\nPlease manually enable";

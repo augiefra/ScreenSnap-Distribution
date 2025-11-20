@@ -21,7 +21,7 @@ struct Logger {
         #if DEBUG
         let emoji = level.rawValue
         let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
-        print("\(emoji) [\(category)] \(message)")
+        print("\(timestamp) \(emoji) [\(category)] \(message)")
         #endif
     }
 
